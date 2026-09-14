@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# commit-msg hook
+# Validates commit message follows Conventional Commits format.
+#
+# Format: <type>(<scope>): <description>
+# Types: feat, fix, docs, style, refactor, test, chore, ci, build, perf
+#
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Conventional commits pattern
+PATTERN="^(feat|fix|docs|style|refactor|test|chore|ci|build|perf)(\([a-zA-Z0-9_-]+\))?: .{1,}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo ""
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Expected: <type>(<scope>): <description>"
+    echo ""
+    echo "Types:    feat | fix | docs | style | refactor | test | chore | ci | build | perf"
+    echo "Scope:    optional, e.g. (kstream), (api), (frontend)"
+    echo ""
+    echo "Examples:"
+    echo "  feat: add new aggregation window"
+    echo "  fix(kstream): handle null values in stream"
+    echo "  docs: update API documentation"
+    echo "  chore(ci): update GitLab pipeline"
+    echo ""
+    echo "Your message: $COMMIT_MSG"
+    exit 1
+fi
+
+echo "✅ Commit message format valid"

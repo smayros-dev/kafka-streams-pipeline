@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# pre-push hook
+# Runs tests before allowing a push to the remote.
+#
+
+set -e
+
+echo "🚀 Running pre-push tests..."
+
+# Run kstream-service unit tests
+if [ -f "kstream-service/pom.xml" ]; then
+    echo "☕ Running kstream-service unit tests..."
+    mvn test -f kstream-service/pom.xml -q -Dtest=KStreamApplicationTest
+    echo "✅ kstream-service tests passed"
+fi
+
+# Run frontend tests
+if [ -f "frontend/package.json" ]; then
+    echo "📜 Running frontend tests..."
+    npm run test --prefix frontend -- --run
+    echo "✅ Frontend tests passed"
+fi
+
+echo "✅ All pre-push tests passed"

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# pre-commit hook
+# Runs code quality checks on staged files before allowing a commit.
+#
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Check for staged Java files
+STAGED_JAVA=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.java$' || true)
+if [ -n "$STAGED_JAVA" ]; then
+    echo "☕ Java files changed — running Checkstyle..."
+    if command -v mvn &> /dev/null; then
+        mvn checkstyle:check -f kstream-service/pom.xml -q
+        echo "✅ Checkstyle passed"
+    else
+        echo "⚠️  mvn not found — skipping Checkstyle"
+    fi
+fi
+
+# Check for staged frontend files
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+    echo "📜 TypeScript files changed — running ESLint..."
+    if [ -f "frontend/package.json" ]; then
+        npm run lint --prefix frontend
+        echo "✅ ESLint passed"
+    fi
+fi
+
+echo "✅ Pre-commit checks passed"
