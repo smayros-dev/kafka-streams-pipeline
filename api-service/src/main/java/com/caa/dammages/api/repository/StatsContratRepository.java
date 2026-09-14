@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface StatsContratRepository extends MongoRepository<StatsContrat, String> {
 
-    StatsContrat findByContratId(String contratId);
-
     List<StatsContrat> findByContratIdOrderByWindowEndDesc(String contratId);
+
+    StatsContrat findFirstByContratIdOrderByWindowEndDesc(String contratId);
 }

@@ -4,23 +4,30 @@
 
 Le projet Data Dammages utilise une stratégie de test à 4 niveaux pour garantir la qualité et la fiabilité du code.
 
-## Niveaux de Test
-
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     E2E Tests                               │
-│                  (Scénarios complets)                        │
+│              (3 scénarios complets)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                 Acceptance Tests                             │
-│              (Testcontainers - Docker)                       │
+│          (Testcontainers - Docker, 15 tests)                │
 ├─────────────────────────────────────────────────────────────┤
 │                   Unit Tests                                │
-│                (KafkaTopologyTestDriver)                     │
+│            (TopologyTestDriver, 8 tests)                    │
 ├─────────────────────────────────────────────────────────────┤
 │                     Lint                                    │
 │              (Checkstyle / ESLint)                           │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Résumé des Tests
+
+| Module | Unit | Acceptance | E2E | Frontend | Total |
+|--------|------|------------|-----|----------|-------|
+| kstream-service | 8 | 2 | 3 | - | **13** |
+| api-service | - | 5 | - | - | **5** |
+| frontend | - | - | - | 8 | **8** |
+| **Total** | **8** | **7** | **3** | **8** | **26** |
 
 ## 1. Lint (Analyse Statique)
 
@@ -31,10 +38,10 @@ mvn checkstyle:check -f kstream-service/pom.xml
 ```
 
 Vérifie :
-- Convention de nommage
-- Formatage du code
-- Longueur des lignes
-- Javadoc
+- Convention de nommage (camelCase, pas de underscores)
+- Formatage du code (indentation 4 espaces)
+- Longueur des lignes (< 120 caractères)
+- Javadoc sur les classes et méthodes publiques
 
 ### Frontend - ESLint
 
@@ -48,21 +55,19 @@ Vérifie :
 - Hooks React
 - Import inutiles
 
-## 2. Unit Tests
-
-### Kafka Streams (kstream-service)
+## 2. Unit Tests (kstream-service)
 
 ```bash
 mvn test -f kstream-service/pom.xml
 ```
 
-**8 tests** utilisant `TopologyTestDriver` :
+**8 tests** utilisant `TopologyTestDriver` (pas de Docker requis) :
 
 | Test | Description |
 |------|-------------|
 | `shouldFilterSinistresCritiques` | Filtrage montant > 10k |
 | `shouldProduceToSinistresCritiquesTopic` | Publication topic critique |
-| `shouldAggregateStatsByContrat` | Agrégation par contrat |
+| `shouldAggregateStatsByContrat` | Agrégation fenêtrée par contrat (vérifie windowStart/windowEnd) |
 | `shouldJoinWithContratReference` | Join KGlobalTable |
 | `shouldHandleMissingContratGracefully` | Gestion contrat manquant |
 | `shouldProduceToStatsTopic` | Publication stats |
@@ -74,19 +79,11 @@ mvn test -f kstream-service/pom.xml
 - Pas de Docker requis
 - Déterministe
 
-### Spring Boot (api-service)
-
-```bash
-mvn test -f api-service/pom.xml
-```
-
-Tests unitaires avec `@WebMvcTest` et mocks.
-
 ## 3. Acceptance Tests (Testcontainers)
 
 ### Concept
 
-Les acceptance tests valident l'intégration avec les dépendances réelles (Kafka, MongoDB) via Docker.
+Les acceptance tests valident l'intégration avec les dépendances réelles via Docker containers temporaires.
 
 ```java
 @Container
@@ -113,13 +110,13 @@ static KafkaContainer kafka = new KafkaContainer(
 | `shouldSaveAndRetrieveStatsContrat` | CRUD StatsContrat |
 | `shouldSaveAndRetrieveSinistresCritiques` | CRUD SinistreCritique |
 | `shouldReturnEmptyWhenContratNotFound` | Gestion 404 |
-| `shouldSaveMultipleStatsForSameContrat` | Multi-versions |
+| `shouldSaveMultipleStatsForSameContrat` | Multi-versions (fenêtres) |
 | `shouldDeleteAllData` | Nettoyage données |
 
 ### Exécution
 
 ```bash
-# Tous les tests
+# Tous les tests backend
 mvn test -f kstream-service/pom.xml
 mvn test -f api-service/pom.xml
 
@@ -130,11 +127,11 @@ mvn test -Dtest=ApiAcceptanceTest -f api-service/pom.xml
 
 ## 4. E2E Tests (End-to-End)
 
-### Concept
+Les tests E2E valident les scénarios métier complets à travers tout le pipeline Kafka Streams.
 
-Les tests E2E valident les scénarios métier complets à travers tout le pipeline.
+### Fichier de Test
 
-### Scénarios Testés
+`EndToEndFlowTest.java` - 3 scénarios E2E :
 
 #### Scénario 1 : Filtrage Critique
 
@@ -143,12 +140,14 @@ Sinistre (15000 EUR) → Kafka → KStream Filter → sinistres-critiques
 Sinistre (5000 EUR)  → Kafka → KStream Filter → ignoré
 ```
 
-#### Scénario 2 : Agrégation
+#### Scénario 2 : Agrégation Fenêtrée
 
 ```
 Sinistre 1 (CTR-001, 12000 EUR) ─┐
-                                  ├→ KTable → stats-contrat-5m
+                                  ├→ KTable (5min window) → stats-contrat-5m
 Sinistre 2 (CTR-001, 8000 EUR)  ─┘
+
+Output: { contratId: "CTR-001", totalMontant: 20000, nbSinistres: 2, windowStart: ..., windowEnd: ... }
 ```
 
 #### Scénario 3 : Join Référence
@@ -159,34 +158,39 @@ Sinistre (CTR-001)      ─┐
 Contrat ref (CTR-001)   ─┘
 ```
 
-### Fichier de Test
+## 5. Frontend Tests
 
-`EndToEndFlowTest.java` - 3 scénarios E2E :
-
-```java
-@Test
-void shouldFilterSinistresCritiques() {
-    // Given: 2 sinistres (1 critique, 1 non)
-    // When: Production dans Kafka
-    // Then: Seul le critique est filtré
-}
-
-@Test
-void shouldAggregateStatsByContrat() {
-    // Given: 2 sinistres pour le même contrat
-    // When: Agrégation KTable
-    // Then: Stats contiennent le total
-}
-
-@Test
-void shouldJoinWithContratReference() {
-    // Given: Sinistre + Contrat reference
-    // When: Join KGlobalTable
-    // Then: Sinistre enrichi avec nom client
-}
+```bash
+cd frontend && npm run test
 ```
 
+**8 tests** avec Vitest + React Testing Library + jsdom :
+
+| Composant | Tests | Description |
+|-----------|-------|-------------|
+| StatCard | 3 | Rendu montant, label, icône |
+| SinistresCritiquesTable | 5 | Rendu tableau, données vides, formatage |
+
 ## Architecture des Tests
+
+### TopologyTestDriver
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Test JVM                                  │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │               TopologyTestDriver                        ││
+│  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ ││
+│  │  │ Input Topic │───▶│  Topology   │───▶│ Output Topic│ ││
+│  │  └─────────────┘    └─────────────┘    └─────────────┘ ││
+│  └─────────────────────────────────────────────────────────┘│
+│                           │                                 │
+│                           ▼                                 │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │               Assertions (JUnit 5)                      ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Testcontainers
 
@@ -197,38 +201,15 @@ void shouldJoinWithContratReference() {
 │  │               Application Code                          ││
 │  │         (Kafka Streams / Spring Boot)                   ││
 │  └─────────────────────────────────────────────────────────┘│
-│                           │                                 │
-│                           ▼                                 │
-│  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Docker Containers                           │
+│                 Docker Containers (éphémères)                │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
 │  │   Kafka     │  │  MongoDB    │  │  Zookeeper  │        │
 │  │  (port 9092)│  │ (port 27017)│  │ (port 2181) │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### TopologyTestDriver
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Test JVM                                  │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │               TopologyTestDriver                        ││
-│  │  ┌─────────────┐    ┌─────────────┐                     ││
-│  │  │ Input Topic │───▶│  Topology   │───▶│ Output Topic │  ││
-│  │  └─────────────┘    └─────────────┘    └─────────────┘  ││
-│  └─────────────────────────────────────────────────────────┘│
-│                           │                                 │
-│                           ▼                                 │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │               Assertions                                ││
-│  │         (Vérification résultats)                        ││
-│  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -247,42 +228,11 @@ void shouldJoinWithContratReference() {
 ```bash
 # Avec JaCoCo
 mvn test jacoco:report -f kstream-service/pom.xml
+mvn test jacoco:report -f api-service/pom.xml
 
-# Rapport dans target/site/jacoco/
-```
-
-## CI/CD Pipeline
-
-### Pipeline de Test
-
-```yaml
-stages:
-  - lint
-  - test
-  - acceptance
-  - e2e
-
-lint:
-  script:
-    - mvn checkstyle:check
-    - cd frontend && npm run lint
-
-test:
-  script:
-    - mvn test -f kstream-service/pom.xml
-    - mvn test -f api-service/pom.xml
-
-acceptance:
-  services:
-    - docker:dind
-  script:
-    - mvn test -Dtest=*AcceptanceTest
-
-e2e:
-  services:
-    - docker:dind
-  script:
-    - mvn test -Dtest=*EndToEndTest
+# Rapports dans :
+# kstream-service/target/site/jacoco/
+# api-service/target/site/jacoco/
 ```
 
 ## Cas de Test par Composant
@@ -297,13 +247,13 @@ e2e:
 | 4 | Montant = 0 | sinistre 0 | ignoré |
 | 5 | Montant négatif | sinistre -1000 | ignoré |
 
-### KTable (Agrégation)
+### KTable (Agrégation Fenêtrée)
 
 | # | Cas | Entrée | Sortie Attendue |
 |---|-----|--------|-----------------|
-| 1 | Premier sinistre | 1 sinistre | nbSinistres=1 |
-| 2 | Deux sinistres | 2 sinistres | nbSinistres=2 |
-| 3 | Contrats différents | 2 contrats | 2agrégations |
+| 1 | Premier sinistre | 1 sinistre | nbSinistres=1, windowStart/windowEnd |
+| 2 | Deux sinistres | 2 sinistres | nbSinistres=2, totalMontant somme |
+| 3 | Contrats différents | 2 contrats | 2 agrégations séparées |
 | 4 | Fenêtre expirée | hors fenêtre | nouvel agrégat |
 
 ### KGlobalTable (Join)
@@ -318,10 +268,47 @@ e2e:
 
 | # | Cas | Endpoint | Code Attendu |
 |---|-----|----------|--------------|
-| 1 | Contrat existe | GET /stats/contrat/CTR-001 | 200 |
+| 1 | Contrat existe | GET /stats/contrat/CTR-100 | 200 |
 | 2 | Contrat manquant | GET /stats/contrat/UNKNOWN | 404 |
 | 3 | Stats vides | GET /stats/critiques | 200 [] |
 | 4 | Critiques existent | GET /stats/critiques | 200 [...] |
+| 5 | Historique | GET /stats/contrat/CTR-100/historique | 200 [...] |
+| 6 | Filtrage seuil | GET /stats/critiques/seuil/50000 | 200 [...] |
+
+## CI/CD Pipeline
+
+### Pipeline de Test
+
+```yaml
+stages:
+  - lint
+  - test
+  - acceptance
+  - e2e
+
+lint:
+  script:
+    - mvn checkstyle:check -f kstream-service/pom.xml
+    - cd frontend && npm run lint
+
+test:
+  script:
+    - mvn test -f kstream-service/pom.xml
+    - mvn test -f api-service/pom.xml
+
+acceptance:
+  services:
+    - docker:dind
+  script:
+    - mvn test -Dtest=KafkaStreamAcceptanceTest -f kstream-service/pom.xml
+    - mvn test -Dtest=ApiAcceptanceTest -f api-service/pom.xml
+
+e2e:
+  services:
+    - docker:dind
+  script:
+    - mvn test -Dtest=EndToEndFlowTest -f kstream-service/pom.xml
+```
 
 ## Exécution Rapide
 
@@ -334,6 +321,12 @@ mvn test jacoco:report -f kstream-service/pom.xml
 
 # Tests spécifiques
 mvn test -Dtest=KStreamApplicationTest -f kstream-service/pom.xml
-mvn test -Dtest=ApiAcceptanceTest -f api-service/pom.xml
+mvn test -Dtest=KafkaStreamAcceptanceTest -f kstream-service/pom.xml
 mvn test -Dtest=EndToEndFlowTest -f kstream-service/pom.xml
+mvn test -Dtest=ApiAcceptanceTest -f api-service/pom.xml
+
+# Frontend
+cd frontend && npm run test
+cd frontend && npm run lint
+cd frontend && npm run build
 ```

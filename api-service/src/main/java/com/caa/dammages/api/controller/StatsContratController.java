@@ -29,7 +29,8 @@ public class StatsContratController {
     @GetMapping("/contrat/{contratId}")
     public ResponseEntity<StatsContrat> getStatsByContrat(
             @PathVariable String contratId) {
-        StatsContrat stats = statsRepository.findByContratId(contratId);
+        StatsContrat stats = statsRepository
+                .findFirstByContratIdOrderByWindowEndDesc(contratId);
         if (stats == null) {
             return ResponseEntity.notFound().build();
         }

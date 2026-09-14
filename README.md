@@ -7,46 +7,51 @@ Pipeline de streaming temps réel pour l'agrégation et le filtrage des sinistre
 Voir : [`docs/diagrams/plantuml/architecture-system.puml`](docs/diagrams/plantuml/architecture-system.puml)
 
 ```
-Applications Métier → Kafka: raw-sinistres
-                              ↓
-               ┌──────────────┼──────────────┐
-               ↓              ↓              ↓
-        KStream: Filter  KTable: Agg   KGlobalTable: Join
-               ↓              ↓              ↓
- sinistres-critiques  stats-contrat-5m  sinistres-enrichis
-               ↓              ↓              ↓
-               └──────────────┼──────────────┘
-                              ↓
-                   MongoDB Sink Connector
-                              ↓
-                         MongoDB
-                              ↓
-                   Spring Boot API
-                              ↓
-                    React Dashboard
+kafka-producer (mock data) → Kafka: raw-sinistres
+                                    ↓
+                  ┌─────────────────┼─────────────────┐
+                  ↓                 ↓                 ↓
+           KStream: Filter    KTable: Agg    KGlobalTable: Join
+                  ↓                 ↓                 ↓
+     sinistres-critiques    stats-contrat-5m   sinistres-enrichis
+                  ↓                 ↓                 ↓
+                  └─────────────────┼─────────────────┘
+                                    ↓
+                       MongoDB Sink Connectors
+                                    ↓
+                               MongoDB
+                                    ↓
+                       Spring Boot API (6 endpoints)
+                                    ↓
+                        React Dashboard (Dark Mode)
 ```
 
 ## Technologies
 
-| Composant | Technologie |
-|-----------|-------------|
-| Stream Processing | Kafka Streams 3.5 |
-| Query Language | KSQLDB 0.29 |
-| Database | MongoDB 6.0 |
-| API Backend | Spring Boot 3.1 |
-| Frontend | React 18 + TypeScript + Vite |
-| CI/CD | GitLab CI |
-| Orchestration | Docker + Kubernetes (Helm) |
-| Monitoring | Prometheus + Grafana |
-| Testing | JUnit 5 + Testcontainers + Vitest |
-| Code Quality | Checkstyle + ESLint + SonarQube |
+| Composant | Technologie | Version |
+|-----------|-------------|---------|
+| Stream Processing | Kafka Streams | 3.5 |
+| Query Language | KSQLDB | 0.29 |
+| Database | MongoDB | 6.0 |
+| API Backend | Spring Boot | 3.1 |
+| Frontend | React + TypeScript + Vite | 18.2 |
+| CI/CD | GitLab CI | - |
+| Orchestration | Docker + Kubernetes (Helm) | - |
+| Monitoring | Prometheus + Grafana | - |
+| Testing | JUnit 5 + Testcontainers + Vitest | - |
+| Code Quality | Checkstyle + ESLint | - |
 
 ## Démarrage Rapide
 
-### Docker Compose (Local)
+### Prérequis
+
+- Docker 24.0+ et Docker Compose v2
+- Java 17+ (pour build local)
+- Node.js 20+ (pour frontend)
+
+### 1. Cloner et démarrer
 
 ```bash
-# Cloner et démarrer
 git clone https://github.com/caa/dammages-streaming.git
 cd dammages-streaming
 
@@ -54,29 +59,47 @@ cd dammages-streaming
 echo "MONGO_ROOT_USER=admin" > .env
 echo "MONGO_ROOT_PASSWORD=password" >> .env
 
-# Démarrer tous les services
-docker-compose up -d --build
+# Démarrer tous les services (12 containers)
+docker compose up -d --build
 ```
 
-### Services disponibles
+### 2. Vérifier le pipeline
 
-| Service | URL | Port | Description |
-|---------|-----|------|-------------|
-| Dashboard | http://localhost:3000 | 3000 | Interface React |
-| API REST | http://localhost:8080 | 8080 | Spring Boot API |
-| API Health | http://localhost:8080/actuator/health | 8080 | Health check |
-| Prometheus | http://localhost:8080/actuator/prometheus | 8080 | Métriques |
-| MongoDB Express | http://localhost:8082 | 8082 | Admin MongoDB |
-| KSQLDB | http://localhost:8088 | 8088 | Query language |
-| Grafana | http://localhost:3001 | 3001 | Dashboards |
+```bash
+# Attendre que tous les services soient sains (~60s)
+docker compose ps
+
+# Vérifier les données qui circulent
+curl -s http://localhost:8080/api/v1/stats/critiques/seuil/10000 | python3 -m json.tool | head -20
+```
+
+### 3. Accéder aux interfaces
+
+| Service | URL | Identifiants |
+|---------|-----|--------------|
+| Dashboard React | http://localhost:3000 | - |
+| API REST | http://localhost:8080 | - |
+| API Health | http://localhost:8080/actuator/health | - |
+| Prometheus Métriques | http://localhost:8080/actuator/prometheus | - |
+| MongoDB Express | http://localhost:8082 | admin / password |
+| KSQLDB | http://localhost:8088 | - |
+| Kafka Connect | http://localhost:8083 | - |
+| Grafana | http://localhost:3001 | admin / admin |
+| Microcks | http://localhost:8585 | admin / admin |
+
+### 4. Arrêter le stack
+
+```bash
+docker compose down -v  # -v supprime les volumes (données)
+```
 
 ## Structure du Projet
 
 ```
-dammages-streaming/
+kafka-stream/
 ├── kstream-service/              # Kafka Streams (Java 17)
 │   ├── checkstyle.xml            # Règles Checkstyle
-│   ├── pom.xml                   # Maven + JaCoCo + SonarQube
+│   ├── pom.xml                   # Maven + JaCoCo
 │   ├── Dockerfile
 │   └── src/
 │       ├── main/java/
@@ -88,10 +111,7 @@ dammages-streaming/
 │       │       ├── model/SinistreAggregator.java
 │       │       ├── service/AggregationService.java
 │       │       └── serde/*.java
-│       └── test/java/
-│           ├── KStreamApplicationTest.java (8 tests)
-│           ├── acceptance/KafkaStreamAcceptanceTest.java (2 tests)
-│           └── e2e/EndToEndFlowTest.java (3 tests)
+│       └── test/java/ (8 unit + 2 acceptance + 3 E2E = 13 tests)
 ├── api-service/                  # Spring Boot API (Java 17)
 │   ├── pom.xml
 │   ├── Dockerfile
@@ -99,53 +119,50 @@ dammages-streaming/
 │       ├── main/java/
 │       │   └── com/caa/dammages/api/
 │       │       ├── controller/StatsContratController.java
-│       │       ├── repository/*.java
+│       │       ├── config/CorsConfig.java
+│       │       ├── config/RateLimitInterceptor.java
 │       │       ├── model/*.java
-│       │       └── config/*.java
-│       └── test/java/
-│           └── acceptance/ApiAcceptanceTest.java (5 tests)
+│       │       └── repository/*.java
+│       └── test/java/ (5 acceptance tests)
 ├── frontend/                     # React Dashboard
 │   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
 │   ├── Dockerfile
 │   ├── nginx.conf
 │   └── src/
-│       ├── components/
-│       │   ├── StatCard.tsx
-│       │   ├── SinistresCritiquesTable.tsx
-│       │   ├── StatsChart.tsx
-│       │   ├── ErrorBoundary.tsx
-│       │   ├── LoadingSpinner.tsx
-│       │   ├── ThemeToggle.tsx
-│       │   └── ExportButton.tsx
-│       ├── context/
-│       │   └── ThemeContext.tsx
-│       ├── pages/
-│       │   └── Dashboard.tsx
-│       └── services/
-│           ├── api.ts
-│           └── export.ts
+│       ├── components/ (StatCard, SinistresCritiquesTable, StatsChart,
+│       │                 ErrorBoundary, LoadingSpinner, ThemeToggle, ExportButton)
+│       ├── context/ThemeContext.tsx
+│       ├── pages/Dashboard.tsx (lazy loaded)
+│       └── services/ (api.ts, export.ts)
 ├── grafana/                      # Dashboards Grafana
 │   ├── api-service-dashboard.json
 │   └── datasources.yml
-├── mongodb/
-│   └── create-indexes.js         # 9 indexes optimisés
-├── ksqldb/
-│   └── create-streams.sql
-├── helm/                         # Charts Kubernetes
-├── docs/
+├── kafka-connect/                # MongoDB Sink Connector
+│   ├── Dockerfile                # Downloads JARs from Maven Central
+│   └── (mongo-kafka-connect JARs auto-downloaded)
+├── kafka-init/                   # Topics + Connectors init
+│   ├── Dockerfile
+│   └── start.sh
+├── kafka-producer/               # Mock sinistres producer
+│   ├── Dockerfile
+│   └── produce.sh                # 15 realistic scenarios
+├── microcks/                     # AsyncAPI spec
+│   └── sinistres-asyncapi.yml
+├── ksqldb/                       # KSQL scripts
+├── helm/                         # Kubernetes charts
+├── docs/                         # Documentation
 │   ├── architecture/README.md
 │   ├── api/README.md
 │   ├── deployment/README.md
 │   ├── testing/README.md
-│   └── diagrams/plantuml/*.puml  # 11 diagrammes
-├── docker-compose.yml            # 8 services
+│   └── diagrams/plantuml/*.puml
+├── docker-compose.yml            # 12 services
 ├── .gitlab-ci.yml
+├── .gitignore
 ├── sonar-project.properties
-├── CONTEXT.md
+├── README.md
 ├── PRD.md
-└── README.md
+└── CONTEXT.md
 ```
 
 ## API Endpoints
@@ -154,8 +171,8 @@ dammages-streaming/
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| GET | `/api/v1/stats/contrat/{contratId}` | Stats pour un contrat |
-| GET | `/api/v1/stats/contrat/{contratId}/historique` | Historique des stats |
+| GET | `/api/v1/stats/contrat/{contratId}` | Dernière agrégation pour un contrat |
+| GET | `/api/v1/stats/contrat/{contratId}/historique` | Historique des fenêtres glissantes |
 | GET | `/api/v1/stats/critiques?page=0&size=20` | Sinistres critiques (paginé) |
 | GET | `/api/v1/stats/critiques/all` | Tous les sinistres critiques |
 | GET | `/api/v1/stats/critiques/contrat/{contratId}` | Critiques pour un contrat |
@@ -165,7 +182,7 @@ dammages-streaming/
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| GET | `/actuator/health` | Health check |
+| GET | `/actuator/health` | Health check Spring Boot |
 | GET | `/actuator/prometheus` | Métriques Prometheus |
 | GET | `/health` | Health check kstream-service |
 
@@ -173,50 +190,37 @@ dammages-streaming/
 
 ### KStream - Filtrage Temps Réel
 
-Voir : [`docs/diagrams/plantuml/topology-diagram.puml`](docs/diagrams/plantuml/topology-diagram.puml)
+Filtrage des sinistres critiques (montant > 10 000 EUR). Stateless, faible latence.
 
-```java
-// Filtrage des sinistres critiques (montant > 10k)
-rawSinistres
-    .filter((key, jsonValue) -> parseSinistre(jsonValue).getMontantSinistre() > 10000)
-    .to("sinistres-critiques");
-```
+### KTable - Agrégation Fenêtrée (5 min)
 
-### KTable - Agrégation Materialisée
-
-Voir : [`docs/diagrams/plantuml/topology-diagram.puml`](docs/diagrams/plantuml/topology-diagram.puml)
-
-```java
-// Agrégation par contrat sur fenêtre 5 min
-rawSinistres
-    .groupByKey()
-    .aggregate(SinistreAggregator::new,
-        (contratId, sinistre, agg) -> agg.addMontant(sinistre.getMontantSinistre()),
-        Materialized.as("sinistres-by-contrat-store"));
-```
+Agrégation glissante par contrat sur fenêtre de 5 minutes. Output inclut `windowStart` et `windowEnd`.
 
 ### KGlobalTable - Join Données Référence
 
-Voir : [`docs/diagrams/plantuml/topology-diagram.puml`](docs/diagrams/plantuml/topology-diagram.puml)
+Enrichissement des sinistres avec les informations contrat depuis la table de référence `contrats-ref`.
 
-```java
-// Join avec table de référence contrats
-rawSinistres
-    .selectKey((key, s) -> s.getContratId())
-    .leftJoin(contratsGlobalTable,
-        (sinistre, contrat) -> enrichir(sinistre, contrat));
-```
+## Données Mock (kafka-producer)
+
+Le service `kafka-producer` génère 15 scénarios réalistes de sinistres toutes les 3 secondes :
+
+| Type | Montant | Contrat | Fréquence |
+|------|---------|---------|-----------|
+| AUTO | 12 000 - 95 000 EUR | CTR-100, CTR-300 | ~40% |
+| HABITATION | 18 000 - 32 000 EUR | CTR-200, CTR-300 | ~30% |
+| SANTE | 15 000 EUR | CTR-300 | ~15% |
+| INCENDIE | 28 000 EUR | CTR-200 | ~15% |
 
 ## Tests
 
 ### Résultats
 
-| Module | Tests | Couverture |
-|--------|-------|------------|
-| kstream-service | 13 | 90%+ |
-| api-service | 5 | 85%+ |
-| frontend | 8 | 80%+ |
-| **Total** | **26** | - |
+| Module | Unit | Acceptance | E2E | Total |
+|--------|------|------------|-----|-------|
+| kstream-service | 8 | 2 | 3 | **13** |
+| api-service | - | 5 | - | **5** |
+| frontend | - | 8 | - | **8** |
+| **Total** | **8** | **15** | **3** | **26** |
 
 ### Commandes
 
@@ -228,21 +232,21 @@ mvn test -f api-service/pom.xml
 # Tests frontend
 cd frontend && npm run test
 
-# Code coverage
-mvn test jacoco:report -f kstream-service/pom.xml
-
 # Checkstyle
 mvn checkstyle:check -f kstream-service/pom.xml
 
 # Lint frontend
 cd frontend && npm run lint
+
+# Code coverage
+mvn test jacoco:report -f kstream-service/pom.xml
+mvn test jacoco:report -f api-service/pom.xml
 ```
 
 ## Monitoring
 
-### Grafana Dashboard
+### Grafana Dashboard (8 panneaux)
 
-Le dashboard Grafana inclut 8 panneaux :
 - API Requests (rate)
 - Response Time (p50, p95)
 - JVM Memory (Heap)
@@ -254,7 +258,6 @@ Le dashboard Grafana inclut 8 panneaux :
 
 ### Prometheus Metrics
 
-Les métriques disponibles :
 - `http_server_requests_seconds` - Requêtes HTTP
 - `jvm_memory_used_bytes` - Utilisation mémoire
 - `jvm_threads_live_threads` - Threads actifs
@@ -264,30 +267,30 @@ Les métriques disponibles :
 
 Le pipeline GitLab CI inclut :
 
-1. **Build** - Compilation Maven
+1. **Build** - Compilation Maven (Java 17)
 2. **Test** - Tests unitaires JUnit 5
 3. **Quality** - Checkstyle + ESLint
 4. **Coverage** - JaCoCo reporting
-5. **SAST** - Analyse SonarQube
-6. **Package** - Docker images
-7. **Deploy** - Helm charts sur Kubernetes
+5. **Package** - Docker images
+6. **Deploy** - Helm charts sur Kubernetes
 
 ## Fonctionnalités
 
 ### Frontend
-- Dark mode toggle
+- Dark mode toggle (localStorage persistant)
 - Export CSV/JSON/PDF
-- Error boundaries
-- Loading states
-- Code splitting (lazy loading)
+- Error boundaries (ErrorBoundary)
+- Loading states (LoadingSpinner)
+- Code splitting (React.lazy + Suspense)
 - Responsive design
 
 ### Backend
-- Rate limiting (100 req/min)
-- Health check endpoints
+- Rate limiting (Bucket4j, 100 req/min per IP)
+- Health check endpoints (`/health`, `/actuator/health`)
 - Prometheus metrics
 - MongoDB indexing
-- API pagination
+- API pagination (Spring Data Pageable)
+- CORS configuré (relative URL via nginx)
 
 ## Diagrammes PlantUML
 
@@ -312,9 +315,9 @@ Voir [`docs/diagrams/plantuml/`](docs/diagrams/plantuml/) :
 2. Ouvrir un fichier `.puml`
 3. Le rendu est automatique dans le panneau de droite
 
-## Environnement
+## Variables d'Environnement
 
-### Variables d'environnement
+### kstream-service
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
@@ -322,25 +325,25 @@ Voir [`docs/diagrams/plantuml/`](docs/diagrams/plantuml/) :
 | `KSTREAM_APP_ID` | sinistres-stream-app | ID application |
 | `SEUIL_CRITIQUE` | 10000.0 | Seuil critique EUR |
 | `WINDOW_SIZE_MINUTES` | 5 | Fenêtre agrégation |
+
+### api-service
+
+| Variable | Défaut | Description |
+|----------|--------|-------------|
 | `SPRING_DATA_MONGODB_URI` | mongodb://localhost:27017 | URI MongoDB |
+| `SPRING_DATA_MONGODB_DATABASE` | dommages_db | Base de données |
+
+### Docker Compose
+
+| Variable | Défaut | Description |
+|----------|--------|-------------|
 | `MONGO_ROOT_USER` | admin | Utilisateur MongoDB |
 | `MONGO_ROOT_PASSWORD` | password | Mot de passe MongoDB |
-
-### SonarQube (Optionnel)
-
-```bash
-export SONAR_HOST_URL=http://localhost:9000
-export SONAR_TOKEN=your-token
-
-mvn clean verify sonar:sonar -Psonar -f kstream-service/pom.xml
-mvn clean verify sonar:sonar -Psonar -f api-service/pom.xml
-```
 
 ## Documentation
 
 - [PRD.md](./PRD.md) - Product Requirements Document
 - [CONTEXT.md](./CONTEXT.md) - Contexte projet et tâches
-- [docs/README.md](./docs/README.md) - Documentation complète
 - [docs/architecture/README.md](./docs/architecture/README.md) - Architecture
 - [docs/api/README.md](./docs/api/README.md) - Documentation API
 - [docs/deployment/README.md](./docs/deployment/README.md) - Déploiement
