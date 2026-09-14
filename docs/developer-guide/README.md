@@ -13,8 +13,8 @@
 
 ```bash
 # Cloner
-git clone https://github.com/caa/dammages-streaming.git
-cd kafka-stream
+git clone https://gitlab.com/caa/kafka-streams-pipeline.git
+cd kafka-streams-pipeline
 
 # Configurer
 echo "MONGO_ROOT_USER=admin" > .env

@@ -63,8 +63,8 @@ kafka-producer (mock data) → Kafka: raw-sinistres
 ### 1. Cloner et démarrer
 
 ```bash
-git clone https://github.com/caa/dammages-streaming.git
-cd dammages-streaming
+git clone https://gitlab.com/caa/kafka-streams-pipeline.git
+cd kafka-streams-pipeline
 
 # Configurer l'environnement
 echo "MONGO_ROOT_USER=admin" > .env

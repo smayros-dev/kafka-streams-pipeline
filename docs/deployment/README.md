@@ -12,8 +12,8 @@
 ### 1. Cloner le repository
 
 ```bash
-git clone https://github.com/caa/dammages-streaming.git
-cd dammages-streaming
+git clone https://gitlab.com/caa/kafka-streams-pipeline.git
+cd kafka-streams-pipeline
 ```
 
 ### 2. Configurer les variables d'environnement
