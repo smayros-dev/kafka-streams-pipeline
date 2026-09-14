@@ -1,0 +1,55 @@
+@startuml topology-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Kafka Streams Topology
+
+rectangle "Source" as Source {
+  collections "raw-sinistres" as Raw
+}
+
+rectangle "KStream Branch" as KStreamBranch {
+  rectangle "filter" as Filter1
+  rectangle "mapValues" as Map1
+  collections "sinistres-critiques" as Critiques
+}
+
+rectangle "KTable Branch" as KTableBranch {
+  rectangle "filter" as Filter2
+  rectangle "mapValues" as Map2
+  rectangle "groupByKey" as Group
+  rectangle "aggregate" as Agg
+  collections "stats-contrat-5m" as Stats
+}
+
+rectangle "KGlobalTable Branch" as KGlobalBranch {
+  rectangle "filter" as Filter3
+  rectangle "mapValues" as Map3
+  rectangle "selectKey" as SelectKey
+  rectangle "leftJoin" as Join
+  collections "sinistres-enrichis" as Enrichis
+}
+
+rectangle "Global Tables" as Global {
+  collections "contrats-ref" as Contrats
+}
+
+Raw --> Filter1 : Branch 1
+Raw --> Filter2 : Branch 2
+Raw --> Filter3 : Branch 3
+
+Filter1 --> Map1
+Map1 --> Critiques
+
+Filter2 --> Map2
+Map2 --> Group
+Group --> Agg
+Agg --> Stats
+
+Filter3 --> Map3
+Map3 --> SelectKey
+SelectKey --> Join
+Contrats --> Join
+Join --> Enrichis
+
+@enduml

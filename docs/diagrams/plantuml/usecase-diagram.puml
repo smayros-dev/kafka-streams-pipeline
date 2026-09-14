@@ -1,0 +1,46 @@
+@startuml usecase-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Use Case Diagram - Data Dammages
+
+left to right direction
+
+actor "Responsable Sinistres" as RS
+actor "Analyste Data" as AD
+actor "Systeme Kafka" as SK
+actor "MongoDB" as MDB
+
+rectangle "Data Dammages System" {
+  usecase "Consulter Dashboard" as UC1
+  usecase "Voir Sinistres Critiques" as UC2
+  usecase "Historique Stats Contrat" as UC3
+  usecase "Filtrer par Seuil" as UC4
+  usecase "Filtrer par Contrat" as UC5
+  usecase "Publier Sinistre" as UC6
+  usecase "Agrégation Temps Réel" as UC7
+  usecase "Stocker Résultats" as UC8
+  usecase "Requêter Stats" as UC9
+}
+
+RS --> UC1
+RS --> UC2
+RS --> UC3
+RS --> UC4
+RS --> UC5
+
+AD --> UC1
+AD --> UC3
+AD --> UC4
+
+SK --> UC6
+SK --> UC7
+
+MDB --> UC8
+MDB --> UC9
+
+UC1 ..> UC2 : <<include>>
+UC1 ..> UC3 : <<include>>
+UC7 ..> UC6 : <<include>>
+
+@enduml

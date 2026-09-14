@@ -1,0 +1,35 @@
+@startuml component-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Component Diagram - Frontend Components
+
+package "Frontend Components" {
+  [StatCard] as StatCard
+  [SinistresCritiquesTable] as Table
+  [StatsChart] as Chart
+}
+
+package "Backend Components" {
+  [StatsContratController] as Controller
+  [StatsContratRepository] as StatRepo
+  [SinistreCritiqueRepository] as SinRepo
+}
+
+package "Streaming Components" {
+  [KStreamApplication] as App
+  [AggregationService] as Agg
+  [KafkaStreamConfig] as Config
+}
+
+StatCard --> Controller : GET
+Table --> Controller : GET
+Chart --> Controller : GET
+
+Controller --> StatRepo : Query
+Controller --> SinRepo : Query
+
+App --> Agg : Build Topology
+Agg --> Config : Configure
+
+@enduml

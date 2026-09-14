@@ -1,0 +1,45 @@
+@startuml deployment-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Deployment Diagram - Docker Compose
+
+node "Docker Compose" as DC {
+  node "frontend:3000" as Frontend {
+    artifact "nginx" as Nginx
+    artifact "React App" as React
+  }
+
+  node "api-service:8080" as API {
+    artifact "Spring Boot" as Spring
+  }
+
+  node "kstream-service" as KStream {
+    artifact "Java 8" as Java
+  }
+
+  node "mongodb:27017" as Mongo {
+    artifact "MongoDB 6.0" as MongoDB
+  }
+
+  node "kafka:9092" as Kafka {
+    artifact "Kafka Broker" as Broker
+  }
+
+  node "ksqldb:8088" as KSQL {
+    artifact "KSQLDB Server" as Server
+  }
+
+  node "kafka-connect:8083" as Connect {
+    artifact "MongoDB Sink" as Sink
+  }
+}
+
+Frontend --> API : HTTP
+API --> MongoDB : Driver
+KStream --> Kafka : Produce/Consume
+KStream --> KSQL : Query
+Connect --> Kafka : Consume
+Connect --> MongoDB : Sink
+
+@enduml

@@ -1,0 +1,22 @@
+@startuml state-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title State Diagram - Kafka Streams
+
+[*] --> CREATED
+
+CREATED --> RUNNING : start()
+RUNNING --> REBALANCING : rebalance
+REBALANCING --> RUNNING : rebalance complete
+RUNNING --> PENDING_SHUTDOWN : close()
+PENDING_SHUTDOWN --> NOT_RUNNING : shutdown complete
+NOT_RUNNING --> [*]
+
+state RUNNING {
+  [*] --> PROCESSING
+  PROCESSING --> FETCHING : poll()
+  FETCHING --> PROCESSING : process()
+}
+
+@enduml

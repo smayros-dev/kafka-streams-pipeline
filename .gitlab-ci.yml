@@ -1,0 +1,155 @@
+stages:
+  - build
+  - test
+  - package
+  - quality
+  - deploy-dev
+  - deploy-staging
+  - deploy-prod
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  DOCKER_IMAGE_KSTREAM: $CI_REGISTRY_IMAGE/kstream-service
+  DOCKER_IMAGE_API: $CI_REGISTRY_IMAGE/api-service
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .m2/repository
+
+# =====================================================
+# Build
+# =====================================================
+build:kstream:
+  stage: build
+  image: maven:3.9-eclipse-temurin-8
+  script:
+    - cd kstream-service
+    - mvn clean compile -DskipTests
+  artifacts:
+    paths:
+      - kstream-service/target/
+
+build:api:
+  stage: build
+  image: maven:3.9-eclipse-temurin-8
+  script:
+    - cd api-service
+    - mvn clean compile -DskipTests
+  artifacts:
+    paths:
+      - api-service/target/
+
+# =====================================================
+# Test
+# =====================================================
+test:kstream:
+  stage: test
+  image: maven:3.9-eclipse-temurin-8
+  script:
+    - cd kstream-service
+    - mvn test
+  artifacts:
+    reports:
+      junit:
+        - kstream-service/target/surefire-reports/TEST-*.xml
+
+test:api:
+  stage: test
+  image: maven:3.9-eclipse-temurin-8
+  script:
+    - cd api-service
+    - mvn test
+  artifacts:
+    reports:
+      junit:
+        - api-service/target/surefire-reports/TEST-*.xml
+
+# =====================================================
+# Package (Docker images)
+# =====================================================
+package:kstream:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $DOCKER_IMAGE_KSTREAM:$CI_COMMIT_SHA ./kstream-service
+    - docker push $DOCKER_IMAGE_KSTREAM:$CI_COMMIT_SHA
+  only:
+    - main
+    - develop
+
+package:api:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $DOCKER_IMAGE_API:$CI_COMMIT_SHA ./api-service
+    - docker push $DOCKER_IMAGE_API:$CI_COMMIT_SHA
+  only:
+    - main
+    - develop
+
+# =====================================================
+# Quality (SonarQube)
+# =====================================================
+quality:
+  stage: quality
+  image: maven:3.9-eclipse-temurin-8
+  script:
+    - cd kstream-service && mvn sonar:sonar -Dsonar.projectKey=caa-kstream-service
+    - cd ../api-service && mvn sonar:sonar -Dsonar.projectKey=caa-api-service
+  only:
+    - main
+  allow_failure: true
+
+# =====================================================
+# Deploy Dev
+# =====================================================
+deploy:dev:
+  stage: deploy-dev
+  image: alpine/helm:3.13.0
+  script:
+    - helm upgrade --install kstream-service ./helm/kstream-service --namespace dev --set image.tag=$CI_COMMIT_SHA
+    - helm upgrade --install api-service ./helm/api-service --namespace dev --set image.tag=$CI_COMMIT_SHA
+  environment:
+    name: dev
+    url: https://dev.dammages.caa.local
+  only:
+    - develop
+
+# =====================================================
+# Deploy Staging
+# =====================================================
+deploy:staging:
+  stage: deploy-staging
+  image: alpine/helm:3.13.0
+  script:
+    - helm upgrade --install kstream-service ./helm/kstream-service --namespace staging --set image.tag=$CI_COMMIT_SHA
+    - helm upgrade --install api-service ./helm/api-service --namespace staging --set image.tag=$CI_COMMIT_SHA
+  environment:
+    name: staging
+    url: https://staging.dammages.caa.local
+  when: manual
+  only:
+    - main
+
+# =====================================================
+# Deploy Prod
+# =====================================================
+deploy:prod:
+  stage: deploy-prod
+  image: alpine/helm:3.13.0
+  script:
+    - helm upgrade --install kstream-service ./helm/kstream-service --namespace prod --set image.tag=$CI_COMMIT_SHA
+    - helm upgrade --install api-service ./helm/api-service --namespace prod --set image.tag=$CI_COMMIT_SHA
+  environment:
+    name: production
+    url: https://dammages.caa.local
+  when: manual
+  only:
+    - main

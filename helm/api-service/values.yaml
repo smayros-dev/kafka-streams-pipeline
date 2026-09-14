@@ -1,0 +1,69 @@
+replicaCount: 1
+
+image:
+  repository: registry.caa.local/dammages/api-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: api.dammages.caa.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: dammages-tls
+      hosts:
+        - api.dammages.caa.local
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  SPRING_DATA_MONGODB_URI: "mongodb://mongodb:27017"
+  SPRING_DATA_MONGODB_DATABASE: "dommages_db"
+  LOGGING_LEVEL: "INFO"

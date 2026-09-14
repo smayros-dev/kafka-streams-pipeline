@@ -1,0 +1,31 @@
+@startuml data-flow
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Data Flow - Pipeline de Traitement
+
+rectangle "Input" as Input {
+  collections "Sinistres\n(JSON)" as Sinistres
+}
+
+rectangle "Processing" as Processing {
+  rectangle "KStream\nFilter" as KStream
+  rectangle "KTable\nAggregate" as KTable
+  rectangle "KGlobalTable\nJoin" as KGlobalTable
+}
+
+rectangle "Output" as Output {
+  collections "Sinistres\nCritiques" as Critiques
+  collections "Stats\n5min" as Stats
+  collections "Sinistres\nEnrichis" as Enrichis
+}
+
+Sinistres --> KStream : montant > 10k
+Sinistres --> KTable : groupByKey
+Sinistres --> KGlobalTable : selectKey
+
+KStream --> Critiques
+KTable --> Stats
+KGlobalTable --> Enrichis
+
+@enduml

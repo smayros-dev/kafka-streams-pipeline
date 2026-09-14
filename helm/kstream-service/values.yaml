@@ -1,0 +1,44 @@
+replicaCount: 1
+
+image:
+  repository: registry.caa.local/dammages/kstream-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+  KSQLDB_BOOTSTRAP_SERVERS: "ksqldb:8088"
+  LOGGING_LEVEL: "INFO"

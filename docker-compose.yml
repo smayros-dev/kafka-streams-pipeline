@@ -1,0 +1,307 @@
+services:
+  # =====================================================
+  # Zookeeper
+  # =====================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    platform: linux/amd64
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =====================================================
+  # Kafka Broker
+  # =====================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 6
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # =====================================================
+  # KSQLDB Server
+  # =====================================================
+  ksqldb:
+    image: confluentinc/ksqldb-server:0.29.0
+    platform: linux/amd64
+    container_name: ksqldb
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: kafka:29092
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_KSQL_SERVICE_ID: dammages_
+      KSQL_KSQL_STREAMS_AUTO_OFFSET_RESET: earliest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # =====================================================
+  # MongoDB (avec auth)
+  # =====================================================
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: dommages_db
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =====================================================
+  # MongoDB Express (admin UI)
+  # =====================================================
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8082:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_AUTH_USERNAME: ${MONGO_ROOT_USER:-admin}
+      ME_CONFIG_MONGODB_AUTH_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      ME_CONFIG_MONGODB_AUTH_DATABASE: admin
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_ROOT_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+
+  # =====================================================
+  # Kafka Connect (MongoDB Sink)
+  # =====================================================
+  kafka-connect:
+    build:
+      context: ./kafka-connect
+      dockerfile: Dockerfile
+    container_name: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: kafka-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # =====================================================
+  # KStream Service
+  # =====================================================
+  kstream-service:
+    build:
+      context: ./kstream-service
+      dockerfile: Dockerfile
+    container_name: kstream-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KSTREAM_APP_ID: sinistres-stream-app
+      SEUIL_CRITIQUE: "10000.0"
+      WINDOW_SIZE_MINUTES: "5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # =====================================================
+  # Kafka Init (Topics + Test Data)
+  # =====================================================
+  kafka-init:
+    build:
+      context: .
+      dockerfile: kafka-init/Dockerfile
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_CONNECT_URL: http://kafka-connect:8083
+    restart: "no"
+
+  # =====================================================
+  # Microcks (API Mocking - Async Kafka Producer)
+  # =====================================================
+  microcks:
+    image: quay.io/microcks/microcks-uber:latest
+    container_name: microcks
+    platform: linux/amd64
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8585:8080"
+    volumes:
+      - ./microcks/sinistres-asyncapi.yml:/deployments/sinistres-asyncapi.yml
+    environment:
+      JAVA_OPTIONS: >-
+        -Dfeatures.keycloak.enabled=false
+        -Dasync-api.enabled=true
+        -Dasync-api.default-binding=KAFKA
+        -Dasync-api.default-frequency=5
+        -Dkafka.bootstrap-server=kafka:29092
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # =====================================================
+  # Kafka Producer (Mock Sinistres Data)
+  # =====================================================
+  kafka-producer:
+    build:
+      context: ./kafka-producer
+      dockerfile: Dockerfile
+    container_name: kafka-producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: raw-sinistres
+      PRODUCE_FREQUENCY: "3"
+    restart: on-failure
+
+  # =====================================================
+  # API Service (Spring Boot)
+  # =====================================================
+  api-service:
+    build:
+      context: ./api-service
+      dockerfile: Dockerfile
+    container_name: api-service
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/dommages_db?authSource=admin
+      SPRING_DATA_MONGODB_DATABASE: dommages_db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # =====================================================
+  # Frontend Dashboard
+  # =====================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    depends_on:
+      api-service:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # =====================================================
+  # Grafana (Monitoring)
+  # =====================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/api-service-dashboard.json:/var/lib/grafana/dashboards/api-service-dashboard.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  mongo-data:
+  grafana-data:

@@ -1,0 +1,62 @@
+@startuml class-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Class Diagram - Domain Models
+
+package "kstream-service" {
+  class Sinistre {
+    - String sinistreId
+    - String contratId
+    - double montantSinistre
+    - String typeSinistre
+    - long dateDeclaration
+    + getMontantSinistre() : double
+    + getContratId() : String
+  }
+
+  class SinistreAggregator {
+    - double totalMontant
+    - int nbSinistres
+    + addMontant(double montant) : SinistreAggregator
+    + getTotalMontant() : double
+    + getNbSinistres() : int
+  }
+
+  class ContratReference {
+    - String contratId
+    - String nomClient
+    - String typeContrat
+    - long dateDebut
+    - long dateFin
+    - String statut
+  }
+}
+
+package "api-service" {
+  class SinistreCritique {
+    - String id
+    - String sinistreId
+    - String contratId
+    - double montantSinistre
+    - String typeSinistre
+    - long dateDeclaration
+    - double seuilDepasse
+  }
+
+  class StatsContrat {
+    - String id
+    - String contratId
+    - double totalMontant
+    - int nbSinistres
+    - long windowStart
+    - long windowEnd
+  }
+}
+
+Sinistre ..> SinistreAggregator : "aggregated by"
+Sinistre ..> SinistreCritique : "filtered to"
+SinistreAggregator ..> StatsContrat : "materialized as"
+ContratReference ..> Sinistre : "joined with"
+
+@enduml

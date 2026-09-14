@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-service-dammages
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017
+      database: dommages_db
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.caa.dammages: INFO
+    org.springframework.data.mongodb: DEBUG

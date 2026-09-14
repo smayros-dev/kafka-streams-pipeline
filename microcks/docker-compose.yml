@@ -1,0 +1,47 @@
+services:
+  # =====================================================
+  # Microcks (API Mocking)
+  # =====================================================
+  microcks:
+    image: quay.io/microcks/microcks-uber:latest
+    container_name: microcks
+    platform: linux/amd64
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8585:8080"
+    volumes:
+      - ./microcks/sinistres-asyncapi.yml:/deployments/sinistres-asyncapi.yml
+    environment:
+      JAVA_OPTIONS: "-Dfeatures.keycloak.enabled=false -Dasync-api.enabled=true -Dasync-api.default-binding=KAFKA -Dasync-api.default-frequency=5 -Dkafka.bootstrap-server=kafka:29092"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # =====================================================
+  # Microcks Async Minion (Kafka Producer)
+  # =====================================================
+  microcks-async-minion:
+    image: quay.io/microcks/microcks-async-minion:nightly
+    container_name: microcks-async-minion
+    platform: linux/amd64
+    depends_on:
+      microcks:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8586:8081"
+    environment:
+      QUARKUS_PROFILE: docker-compose
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/q/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s

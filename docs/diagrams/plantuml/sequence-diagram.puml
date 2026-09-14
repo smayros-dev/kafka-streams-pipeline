@@ -1,0 +1,29 @@
+@startuml sequence-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Sequence Diagram - Flux Principal
+
+actor User as U
+participant Dashboard as D
+participant API as API
+database MongoDB as DB
+queue Kafka as K
+participant KStream as KS
+
+== Interface Utilisateur ==
+U -> D : Ouvrir dashboard
+D -> API : GET /stats/critiques
+API -> DB : Query sinistres_critiques
+DB --> API : Return results
+API --> D : Return JSON
+D --> U : Display table
+
+== Traitement Background ==
+note over K,KS : Background processing
+K -> KS : Consume sinistre
+KS -> KS : Filter > 10k
+KS -> K : Publish critique
+K -> DB : Sink to MongoDB
+
+@enduml

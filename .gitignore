@@ -1,0 +1,47 @@
+# Build outputs
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*.swo
+
+# Maven
+.m2/
+dependency-reduced-pom.xml
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+*.env.local
+
+# Docker
+docker-compose.override.yml
+
+# Helm
+helm/**/charts/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# MongoDB connector JARs (downloaded at build time)
+kafka-connect/mongo-kafka-connect-*.jar
+kafka-connect/mongodb-driver-*.jar
+kafka-connect/bson-*.jar

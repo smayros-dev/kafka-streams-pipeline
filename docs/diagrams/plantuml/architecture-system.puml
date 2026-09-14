@@ -1,0 +1,35 @@
+@startuml architecture-system
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+
+title Architecture Data Dammages
+
+package "Frontend" {
+  [React Dashboard] as Frontend
+}
+
+package "Backend" {
+  [Spring Boot API] as API
+}
+
+package "Data Layer" {
+  database "MongoDB" as MongoDB
+}
+
+package "Streaming" {
+  [Kafka Streams] as KS
+  [KSQLDB] as KSQL
+}
+
+package "Messaging" {
+  queue "Apache Kafka" as Kafka
+}
+
+Frontend --> API : REST
+API --> MongoDB : Query
+KS --> Kafka : Produce/Consume
+KSQL --> Kafka : Query
+KS --> MongoDB : Sink Connector
+
+@enduml

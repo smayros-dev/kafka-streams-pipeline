@@ -1,0 +1,58 @@
+@startuml package-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title Package Diagram - Project Structure
+
+package "kafka-stream" {
+  package "kstream-service" {
+    [service] as Service
+    [model] as Model
+    [config] as Config
+    [serde] as Serde
+  }
+
+  package "api-service" {
+    [controller] as Controller
+    [repository] as Repository
+    [model] as ApiModel
+  }
+
+  package "frontend" {
+    [components] as Components
+    [pages] as Pages
+    [services] as FService
+    [types] as Types
+  }
+
+  package "ksqldb" {
+    [create-streams.sql] as KSQL
+  }
+
+  package "helm" {
+    [kstream-service chart] as HelmKS
+    [api-service chart] as HelmAPI
+  }
+
+  package "docs" {
+    [diagrams] as Diagrams
+    [api] as ApiDocs
+    [architecture] as ArchDocs
+  }
+}
+
+Service --> Model
+Service --> Config
+Service --> Serde
+
+Controller --> Repository
+Controller --> ApiModel
+
+Pages --> Components
+Pages --> FService
+FService --> Types
+
+HelmKS ..> Service : deploys
+HelmAPI ..> Controller : deploys
+
+@enduml

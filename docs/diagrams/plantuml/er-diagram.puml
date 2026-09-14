@@ -1,0 +1,41 @@
+@startuml er-diagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+title ER Diagram - MongoDB Collections
+
+entity "sinistres_critiques" as SC {
+  * id : ObjectId <<
+  --
+  * sinistreId : String
+  * contratId : String
+  * montantSinistre : Double
+  * typeSinistre : String
+  * dateDeclaration : Long
+  * seuilDepasse : Double
+}
+
+entity "stats_contrat" as ST {
+  * id : ObjectId <<
+  --
+  * contratId : String
+  * totalMontant : Double
+  * nbSinistres : Integer
+  * windowStart : Long
+  * windowEnd : Long
+}
+
+entity "contrats_ref" as CR {
+  * contratId : String <<
+  --
+  * nomClient : String
+  * typeContrat : String
+  * dateDebut : Long
+  * dateFin : Long
+  * statut : String
+}
+
+SC }o--|| CR : "contratId"
+ST }o--|| CR : "contratId"
+
+@enduml

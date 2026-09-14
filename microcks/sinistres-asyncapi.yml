@@ -1,0 +1,214 @@
+asyncapi: '2.6.0'
+info:
+  title: Sinistres API
+  description: API d'evenements de sinistres CAA Data Dammages - Mock producer avec scenarios realistes
+  version: '1.1.0'
+
+servers:
+  kafka:
+    url: kafka:29092
+    protocol: kafka
+
+channels:
+  raw-sinistres:
+    description: Topic des sinistres bruts avant traitement
+    bindings:
+      kafka:
+        groupId: microcks-sinistres-producer
+        consumerGroupId: sinistres-stream-app
+    publish:
+      operationId: receiveSinistre
+      message:
+        name: Sinistre
+        description: Evenement de sinistre d'assurance
+        payload:
+          type: object
+          required:
+            - sinistreId
+            - contratId
+            - montantSinistre
+            - typeSinistre
+            - dateDeclaration
+            - seuilDepasse
+          properties:
+            sinistreId:
+              type: string
+              description: Identifiant unique du sinistre
+            contratId:
+              type: string
+              description: Identifiant du contrat
+              enum:
+                - CTR-100
+                - CTR-200
+                - CTR-300
+            montantSinistre:
+              type: number
+              format: double
+              description: Montant du sinistre en EUR
+            typeSinistre:
+              type: string
+              description: Type de sinistre
+              enum:
+                - AUTO
+                - HABITATION
+                - SANTE
+                - COLLISION
+                - VOL
+                - INCENDIE
+            dateDeclaration:
+              type: integer
+              format: int64
+              description: Timestamp epoch millis de la declaration
+            seuilDepasse:
+              type: boolean
+              description: Le seuil critique (10000 EUR) est depasse
+        examples:
+          - name: Normal auto claim
+            summary: Sinistre auto classique sous le seuil
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-100
+              montantSinistre: 3500.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Critical auto claim
+            summary: Sinistre auto critique depassant le seuil
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-100
+              montantSinistre: 25000.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Habitation claim
+            summary: Sinistre habitation classique
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-200
+              montantSinistre: 8500.00
+              typeSinistre: HABITATION
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Storm damage
+            summary: Degats de tempete - sinistre critique habitation
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-200
+              montantSinistre: 32000.00
+              typeSinistre: HABITATION
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Health claim
+            summary: Sinistre sante classique
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-300
+              montantSinistre: 2200.00
+              typeSinistre: SANTE
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Large health claim
+            summary: Sinistre sante important
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-300
+              montantSinistre: 15000.00
+              typeSinistre: SANTE
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Multi-claim contract - high
+            summary: Premier sinistre sur contrat multi-sinistres
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-100
+              montantSinistre: 12000.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Multi-claim contract - low
+            summary: Deuxieme sinistre sur contrat multi-sinistres
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-100
+              montantSinistre: 7500.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Edge case - minimal
+            summary: Sinistre tres faible montant
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-200
+              montantSinistre: 150.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Edge case - very large
+            summary: Sinistre tres important - cas limite
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-300
+              montantSinistre: 95000.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Collision claim
+            summary: Sinistre collision automobile
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-100
+              montantSinistre: 4500.00
+              typeSinistre: COLLISION
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Fire claim
+            summary: Sinistre incendie - sinistre critique
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-200
+              montantSinistre: 28000.00
+              typeSinistre: INCENDIE
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: true
+
+          - name: Theft claim
+            summary: Sinistre vol
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-300
+              montantSinistre: 6500.00
+              typeSinistre: VOL
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Recent claim
+            summary: Sinistre recent de la journee
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-200
+              montantSinistre: 9800.00
+              typeSinistre: AUTO
+              dateDeclaration: "{{date.now('epoch')}}"
+              seuilDepasse: false
+
+          - name: Historical claim
+            summary: Sinistre declare il y a 3 heures
+            payload:
+              sinistreId: "SIN-{{randomNumber(100,999)}}"
+              contratId: CTR-300
+              montantSinistre: 18000.00
+              typeSinistre: HABITATION
+              dateDeclaration: "{{date.now('-3h')}}"
+              seuilDepasse: true
