@@ -55,7 +55,7 @@ class ApiAcceptanceTest {
         StatsContrat stats = new StatsContrat("CTR-001", 25000.0, 3, 1773219700000L, 1773220000000L);
         statsRepository.save(stats);
 
-        StatsContrat retrieved = statsRepository.findByContratId("CTR-001");
+        StatsContrat retrieved = statsRepository.findFirstByContratIdOrderByWindowEndDesc("CTR-001");
 
         assertNotNull(retrieved);
         assertEquals("CTR-001", retrieved.getContratId());
@@ -77,7 +77,7 @@ class ApiAcceptanceTest {
 
     @Test
     void shouldReturnEmptyWhenContratNotFound() {
-        StatsContrat retrieved = statsRepository.findByContratId("UNKNOWN");
+        StatsContrat retrieved = statsRepository.findFirstByContratIdOrderByWindowEndDesc("UNKNOWN");
 
         assertNull(retrieved);
     }

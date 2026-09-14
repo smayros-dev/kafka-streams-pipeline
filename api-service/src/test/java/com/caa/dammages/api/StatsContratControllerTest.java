@@ -34,7 +34,7 @@ class StatsContratControllerTest {
     @Test
     void shouldReturnStatsWhenContratExists() throws Exception {
         StatsContrat stats = new StatsContrat("CTR-001", 25000.0, 3, 1773219700000L, 1773220000000L);
-        when(statsRepository.findByContratId("CTR-001")).thenReturn(stats);
+        when(statsRepository.findFirstByContratIdOrderByWindowEndDesc("CTR-001")).thenReturn(stats);
 
         mockMvc.perform(get("/api/v1/stats/contrat/CTR-001"))
                 .andExpect(status().isOk())
@@ -45,7 +45,7 @@ class StatsContratControllerTest {
 
     @Test
     void shouldReturn404WhenContratNotFound() throws Exception {
-        when(statsRepository.findByContratId("UNKNOWN")).thenReturn(null);
+        when(statsRepository.findFirstByContratIdOrderByWindowEndDesc("UNKNOWN")).thenReturn(null);
 
         mockMvc.perform(get("/api/v1/stats/contrat/UNKNOWN"))
                 .andExpect(status().isNotFound());
