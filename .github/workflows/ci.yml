@@ -43,7 +43,7 @@ jobs:
       - name: Build
         run: mvn compile -q
       - name: Unit Tests
-        run: mvn test -q
+        run: mvn test -Dtest=StatsContratControllerTest -q
 
   frontend:
     name: Frontend

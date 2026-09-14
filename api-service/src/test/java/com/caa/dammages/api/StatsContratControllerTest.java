@@ -5,31 +5,37 @@ import com.caa.dammages.api.model.SinistreCritique;
 import com.caa.dammages.api.model.StatsContrat;
 import com.caa.dammages.api.repository.SinistreCritiqueRepository;
 import com.caa.dammages.api.repository.StatsContratRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Arrays;
-import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(StatsContratController.class)
+@ExtendWith(MockitoExtension.class)
 class StatsContratControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @Mock
     private StatsContratRepository statsRepository;
 
-    @MockBean
+    @Mock
     private SinistreCritiqueRepository sinistresRepository;
+
+    @BeforeEach
+    void setUp() {
+        StatsContratController controller =
+                new StatsContratController(statsRepository, sinistresRepository);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    }
 
     @Test
     void shouldReturnStatsWhenContratExists() throws Exception {
