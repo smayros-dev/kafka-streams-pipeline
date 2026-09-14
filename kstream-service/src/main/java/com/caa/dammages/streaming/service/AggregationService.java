@@ -17,10 +17,13 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.Windowed;
+import org.apache.kafka.streams.state.WindowStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -160,7 +163,8 @@ public final class AggregationService {
      */
     private void buildKTableAggregationBranch(
             final KStream<String, String> rawSinistres) {
-        final KTable<String, SinistreAggregator> byContrat =
+        final KTable<Windowed<String>,
+                SinistreAggregator> byContrat =
                 rawSinistres
             .filter((key, jsonValue) -> {
                 final Sinistre s = parseSinistre(jsonValue);
@@ -178,6 +182,9 @@ public final class AggregationService {
                             sinistre))
             .groupByKey(Grouped.with(
                     Serdes.String(), sinistreSerde))
+            .windowedBy(
+                    TimeWindows.ofSizeWithNoGrace(
+                            Duration.ofMinutes(5)))
             .aggregate(
                 SinistreAggregator::new,
                 (cid, sinistre, agg) -> {
@@ -193,7 +200,7 @@ public final class AggregationService {
                 },
                 Materialized.<String,
                         SinistreAggregator,
-                        KeyValueStore<Bytes, byte[]>>
+                        WindowStore<Bytes, byte[]>>
                     as("sinistres-by-contrat-store")
                     .withKeySerde(Serdes.String())
                     .withValueSerde(
@@ -202,15 +209,26 @@ public final class AggregationService {
 
         byContrat
             .toStream()
-            .map((cid, agg) -> {
+            .map((windowedKey, agg) -> {
+                agg.setWindowStart(
+                        windowedKey.window().start());
+                agg.setWindowEnd(
+                        windowedKey.window().end());
                 final Map<String, Object> jsonMap =
                         new HashMap<>();
-                jsonMap.put("contratId", cid);
+                jsonMap.put("contratId",
+                        windowedKey.key());
                 jsonMap.put("totalMontant",
                         agg.getTotalMontant());
                 jsonMap.put("nbSinistres",
                         agg.getNbSinistres());
-                return new KeyValue<>(cid, toJson(jsonMap));
+                jsonMap.put("windowStart",
+                        agg.getWindowStart());
+                jsonMap.put("windowEnd",
+                        agg.getWindowEnd());
+                return new KeyValue<>(
+                        windowedKey.key(),
+                        toJson(jsonMap));
             })
             .filter((key, value) -> value != null)
             .to(KafkaStreamConfig.TOPIC_STATS,

@@ -108,6 +108,8 @@ class KStreamApplicationTest {
         assertTrue(result.contains("CTR-005"));
         assertTrue(result.contains("totalMontant"));
         assertTrue(result.contains("nbSinistres"));
+        assertTrue(result.contains("windowStart"));
+        assertTrue(result.contains("windowEnd"));
     }
 
     @Test

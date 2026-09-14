@@ -11,6 +11,12 @@ public final class SinistreAggregator {
     /** Number of claims. */
     private int nbSinistres;
 
+    /** Window start timestamp (epoch ms). */
+    private long windowStart;
+
+    /** Window end timestamp (epoch ms). */
+    private long windowEnd;
+
     /** Default constructor. */
     public SinistreAggregator() {
         this.totalMontant = 0.0;
@@ -37,6 +43,26 @@ public final class SinistreAggregator {
         this.nbSinistres = nbSinistres;
     }
 
+    /** @return window start timestamp */
+    public long getWindowStart() {
+        return windowStart;
+    }
+
+    /** @param windowStart window start timestamp */
+    public void setWindowStart(final long windowStart) {
+        this.windowStart = windowStart;
+    }
+
+    /** @return window end timestamp */
+    public long getWindowEnd() {
+        return windowEnd;
+    }
+
+    /** @param windowEnd window end timestamp */
+    public void setWindowEnd(final long windowEnd) {
+        this.windowEnd = windowEnd;
+    }
+
     /**
      * Add a claim amount to the aggregate.
      *
@@ -54,6 +80,8 @@ public final class SinistreAggregator {
         return "SinistreAggregator{"
                 + "totalMontant=" + totalMontant
                 + ", nbSinistres=" + nbSinistres
+                + ", windowStart=" + windowStart
+                + ", windowEnd=" + windowEnd
                 + '}';
     }
 }
