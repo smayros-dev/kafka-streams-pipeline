@@ -38,12 +38,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
-          cache: maven
-      - name: Build
-        run: mvn compile -q
-      - name: Unit Tests
-        run: mvn test -Dtest=StatsContratControllerTest -q
+          distribution: temurin
+      - name: Build and Test
+        run: mvn test -Dtest=StatsContratControllerTest
 
   frontend:
     name: Frontend
