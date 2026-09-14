@@ -41,6 +41,17 @@ kafka-producer (mock data) → Kafka: raw-sinistres
 | Testing | JUnit 5 + Testcontainers + Vitest | - |
 | Code Quality | Checkstyle + ESLint | - |
 
+## Documentation
+
+- **[Guide Utilisateur](docs/user-guide/README.md)** - Comment utiliser l'application (dashboard, API, MongoDB, Grafana)
+- **[Guide Développeur](docs/developer-guide/README.md)** - Comment contribuer et développer
+- [PRD.md](./PRD.md) - Product Requirements Document
+- [CONTEXT.md](./CONTEXT.md) - Contexte projet et tâches
+- [docs/architecture/README.md](./docs/architecture/README.md) - Architecture
+- [docs/api/README.md](./docs/api/README.md) - Documentation API
+- [docs/deployment/README.md](./docs/deployment/README.md) - Déploiement
+- [docs/testing/README.md](./docs/testing/README.md) - Stratégie de test
+
 ## Démarrage Rapide
 
 ### Prérequis
@@ -339,15 +350,6 @@ Voir [`docs/diagrams/plantuml/`](docs/diagrams/plantuml/) :
 |----------|--------|-------------|
 | `MONGO_ROOT_USER` | admin | Utilisateur MongoDB |
 | `MONGO_ROOT_PASSWORD` | password | Mot de passe MongoDB |
-
-## Documentation
-
-- [PRD.md](./PRD.md) - Product Requirements Document
-- [CONTEXT.md](./CONTEXT.md) - Contexte projet et tâches
-- [docs/architecture/README.md](./docs/architecture/README.md) - Architecture
-- [docs/api/README.md](./docs/api/README.md) - Documentation API
-- [docs/deployment/README.md](./docs/deployment/README.md) - Déploiement
-- [docs/testing/README.md](./docs/testing/README.md) - Stratégie de test
 
 ## Licence
 
