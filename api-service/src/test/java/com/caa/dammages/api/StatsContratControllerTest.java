@@ -10,11 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.Arrays;
+import java.util.Collections;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -60,7 +63,8 @@ class StatsContratControllerTest {
     @Test
     void shouldReturnSinistresCritiques() throws Exception {
         SinistreCritique s1 = new SinistreCritique("sin-001", "CTR-001", 15000.0, "COLLISION", 1773220000000L, 10000.0);
-        when(sinistresRepository.findAllByOrderByDateDeclarationDesc()).thenReturn(Arrays.asList(s1));
+        when(sinistresRepository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(s1)));
 
         mockMvc.perform(get("/api/v1/stats/critiques"))
                 .andExpect(status().isOk())
