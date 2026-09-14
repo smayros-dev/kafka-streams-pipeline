@@ -64,6 +64,6 @@ class StatsContratControllerTest {
 
         mockMvc.perform(get("/api/v1/stats/critiques"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].sinistreId").value("sin-001"));
+                .andExpect(jsonPath("$.content[0].sinistreId").value("sin-001"));
     }
 }

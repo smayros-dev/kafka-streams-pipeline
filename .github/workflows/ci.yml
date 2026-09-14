@@ -39,21 +39,11 @@ jobs:
         with:
           java-version: '17'
           distribution: temurin
+          cache: maven
       - name: Build
         run: mvn compile -q
-      - name: Test
-        id: test
-        run: mvn test -Dtest=StatsContratControllerTest 2>&1 | tee api-service/test-output.log; exit ${PIPESTATUS[0]}
-        continue-on-error: true
-      - name: Upload logs
-        if: steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-service-test-logs
-          path: api-service/test-output.log
-      - name: Fail if test failed
-        if: steps.test.outcome == 'failure'
-        run: exit 1
+      - name: Unit Tests
+        run: mvn test -Dtest=StatsContratControllerTest -q
 
   frontend:
     name: Frontend
